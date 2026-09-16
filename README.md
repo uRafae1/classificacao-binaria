@@ -16,7 +16,7 @@ Após a remoção das instâncias pertencentes às classes descartadas, temos:
 
 ## Probabilidade a priori das classes
 
-As probabilidades a priori das classes restantes são:
+Considerando o dataset completo, as probabilidades a priori das classes restantes são:
 
 | Classe                    |     Cálculo |         Probabilidade |
 | ------------------------- | ----------: | --------------------: |
