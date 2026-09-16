@@ -1,6 +1,7 @@
 
 # Importações utilizadas
 from math import *
+from collections import defaultdict
 
 # Função responsável por ler os dados do arquivo de entrada. Ela ignora as intâncias 
 # de classes indesejadas e retorna 2 vetores, um contendo dados para treinamento 
@@ -21,94 +22,57 @@ def lerDados():
                     continue
                 
                 if qtdInstTreino > 0:
-                    dadosTreino.append(ajustaClassificacao(atributos))
+                    dadosTreino.append(atributos)
                     qtdInstTreino -= 1
                 else:
-                    dadosTeste.append(ajustaClassificacao(atributos[:-1]))
+                    dadosTeste.append(atributos)
 
         return dadosTreino, dadosTeste
 
 
-# Função responsável por ajustar a classificação dos atributos, transformando-os
-# em números para facilitar a manipulação em python
-def ajustaClassificacao(atributos):
+# Função responsável por fazer o treinamento do Naive Bayes, ou seja
+def treinaNaiveBayes(dadosTreino):
+    pPrior = {}
+    for instancia in dadosTreino:
+        classe = instancia[-1]
 
-    atributosAjustados = [0, 0, 0, 0, 0, 0, -1]
+        if classe not in pPrior:
+            pPrior[classe] = 0
 
-    # Compra (buying)
-    match (atributos[0]):
-        case "vhigh": 
-            atributosAjustados[0] = 0
-        case "high": 
-            atributosAjustados[0] = 1
-        case "med": 
-            atributosAjustados[0] = 2
-        case "low": 
-            atributosAjustados[0] = 3
+        pPrior[classe] += 1
 
-    # Manutenção (maint)
-    match (atributos[1]):
-        case "vhigh": 
-            atributosAjustados[1] = 0
-        case "high": 
-            atributosAjustados[1] = 1 
-        case "med": 
-            atributosAjustados[1] = 2 
-        case "low": 
-            atributosAjustados[1] = 3 
-    
-    # Portas (doors)
-    match (atributos[2]):
-        case "2": 
-            atributosAjustados[2] = 0 
-        case "3": 
-            atributosAjustados[2] = 1 
-        case "4": 
-            atributosAjustados[2] = 2 
-        case "5-more":
-            atributosAjustados[2] = 3 
+    for classe in pPrior:
+        pPrior[classe] /= len(dadosTreino)
 
-    # Passageiros (persons)
-    match (atributos[3]):
-        case "2": 
-            atributosAjustados[3] = 0
-        case "4": 
-            atributosAjustados[3] = 1
-        case "more": 
-            atributosAjustados[3] = 2
-    
-    # Porta malas (lug_boot)
-    match (atributos[4]):
-        case "small": 
-            atributosAjustados[4] = 0
-        case "med": 
-            atributosAjustados[4] = 1
-        case "big": 
-            atributosAjustados[4] = 2
+    pCondicional = {}
+    for atributo in range(6):
+        pCondicional[atributo] = {}
 
-    # Segurança (safety)
-    match (atributos[5]):
-        case "low": 
-            atributosAjustados[5] = 0
-        case "med": 
-            atributosAjustados[5] = 1
-        case "high": 
-            atributosAjustados[5] = 2
+        valores = set(instancia[atributo] for instancia in dadosTreino)
 
-    # Classe
-    if len(atributos) == 7:
-        match (atributos[6]):
-            case "unacc": 
-                atributosAjustados[6] = 0
-            case "acc": 
-                atributosAjustados[6] = 1
+        for valor in valores:
+            pCondicional[atributo][valor] = {}
 
-    return atributosAjustados
+            for classe in pPrior:
+                total = 0
+                ocorrencias = 0
+
+                for instancia in dadosTreino:
+                    if instancia[-1] == classe:
+                        total += 1
+
+                        if instancia[atributo] == valor:
+                            ocorrencias += 1
+
+                pCondicional[atributo][valor][classe] = (ocorrencias / total)
+
+    return pPrior, pCondicional
 
 
 # Função principal
 def main():
     dadosTreino, dadosTeste = lerDados() 
+    print(treinaNaiveBayes(dadosTreino))
 
 
 # Chama função principal para funcionamento do projeto
