@@ -1,36 +1,36 @@
+from random import Random
 
-# Importações utilizadas
-from math import *
-from collections import defaultdict
+PERCENTUAL_TREINO = 0.7
+SEED = 42
+CLASSES = ("unacc", "acc")
 
-# Função responsável por ler os dados do arquivo de entrada. Ela ignora as intâncias 
-# de classes indesejadas e retorna 2 vetores, um contendo dados para treinamento 
-# (com 80% das intâncias) e um contendo dados para testes (com 20% das instâncias)
+
 def lerDados():
-    qtdInstTreino = floor(1594 * 0.8)
-
-    with open("dados/car.data", "r") as arquivo:
-        dadosTreino = []
-        dadosTeste = []
-
+    dadosPorClasse = {classe: [] for classe in CLASSES}
+    with open("dados/car.data", "r", encoding="utf-8") as arquivo:
         for linha in arquivo:
-            linha = linha.strip()
+            atributos = linha.strip().split(",")
+            if atributos[-1] in CLASSES:
+                dadosPorClasse[atributos[-1]].append(atributos)
 
-            if linha:
-                atributos = linha.split(",")
-                if atributos[6] == "good" or atributos[6] == "vgood":
-                    continue
-                
-                if qtdInstTreino > 0:
-                    dadosTreino.append(atributos)
-                    qtdInstTreino -= 1
-                else:
-                    dadosTeste.append(atributos)
+    gerador = Random(SEED)
+    dadosTreino = []
+    dadosTeste = []
 
-        return dadosTreino, dadosTeste
+    #embaralha e divide cada classe separadamente para preservar sua proporção
+    for classe in CLASSES:
+        exemplos = dadosPorClasse[classe]
+        gerador.shuffle(exemplos)
+        qtdInstTreino = int(len(exemplos) * PERCENTUAL_TREINO)
+        dadosTreino.extend(exemplos[:qtdInstTreino])
+        dadosTeste.extend(exemplos[qtdInstTreino:])
+
+    gerador.shuffle(dadosTreino)
+    gerador.shuffle(dadosTeste)
+    return dadosTreino, dadosTeste
 
 
-# Função responsável por fazer o treinamento do Naive Bayes, ou seja
+
 def treinaNaiveBayes(dadosTreino):
     pPrior = {}
     for instancia in dadosTreino:
@@ -64,17 +64,92 @@ def treinaNaiveBayes(dadosTreino):
                         if instancia[atributo] == valor:
                             ocorrencias += 1
 
-                pCondicional[atributo][valor][classe] = (ocorrencias / total)
+                pCondicional[atributo][valor][classe] = ocorrencias / total
 
     return pPrior, pCondicional
 
 
-# Função principal
+
+def classificaNaiveBayes(pPrior, pCondicional, exemploNovo):
+    melhorProbabilidade = 0
+    classePredita = None
+
+    for classe in pPrior:
+        probClasse = pPrior[classe]
+
+        for atributo, valor in enumerate(exemploNovo):
+            probCondicional = pCondicional[atributo][valor][classe]
+            probClasse *= probCondicional
+
+        if probClasse > melhorProbabilidade:
+            melhorProbabilidade = probClasse
+            classePredita = classe
+
+    return classePredita
+
+
+def avaliarModelo(pPrior, pCondicional, dadosTeste):
+    matriz = {"VP": 0, "FP": 0, "VN": 0, "FN": 0}
+
+    # acc é a classe positiva; unacc é a classe negativa.
+    for instancia in dadosTeste:
+        classeReal = instancia[-1]
+        classePredita = classificaNaiveBayes(pPrior, pCondicional, instancia[:-1])
+
+        if classeReal == "acc":
+            if classePredita == "acc":
+                matriz["VP"] += 1
+            else:
+                matriz["FN"] += 1
+        else:
+            if classePredita == "acc":
+                matriz["FP"] += 1
+            else:
+                matriz["VN"] += 1
+
+    return matriz
+
+
+def calcularMetricas(matriz):
+    vp = matriz["VP"]
+    fp = matriz["FP"]
+    vn = matriz["VN"]
+    fn = matriz["FN"]
+    total = vp + fp + vn + fn
+
+    # Se o denominador for zero, a métrica é indefinida; aqui convencionamos 0.
+    return {
+        "Acurácia": (vp + vn) / total if total else 0.0,
+        "Sensibilidade": vp / (vp + fn) if vp + fn else 0.0,
+        "Especificidade": vn / (vn + fp) if vn + fp else 0.0,
+        "Precisão": vp / (vp + fp) if vp + fp else 0.0,
+    }
+
+
 def main():
-    dadosTreino, dadosTeste = lerDados() 
-    print(treinaNaiveBayes(dadosTreino))
+    dadosTreino, dadosTeste = lerDados()
+    pPrior, pCondicional = treinaNaiveBayes(dadosTreino)
+    matriz = avaliarModelo(pPrior, pCondicional, dadosTeste)
+    metricas = calcularMetricas(matriz)
+
+    print(f"Total de instâncias: {len(dadosTreino) + len(dadosTeste)}")
+    print(f"Treino: {len(dadosTreino)} ({PERCENTUAL_TREINO:.0%})")
+    print(f"Teste: {len(dadosTeste)} ({1 - PERCENTUAL_TREINO:.0%})")
+
+    for nome, dados in (("Treino", dadosTreino), ("Teste", dadosTeste)):
+        print(f"\n{nome}:")
+        for classe in ("acc", "unacc"):
+            quantidade = sum(instancia[-1] == classe for instancia in dados)
+            print(f"{classe} = {quantidade}")
+
+    print("\nMatriz de confusão (positiva = acc; negativa = unacc):")
+    for nome, quantidade in matriz.items():
+        print(f"{nome} = {quantidade}")
+
+    print("\nMétricas:")
+    for nome, valor in metricas.items():
+        print(f"{nome}: {valor:.2%}")
 
 
-# Chama função principal para funcionamento do projeto
-main()
-    
+if __name__ == "__main__":
+    main()
